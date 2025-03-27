@@ -1,20 +1,22 @@
 import 'package:flutter/material.dart';
-import '../../../model/ride/ride_filter.dart';
-import 'widgets/ride_pref_bar.dart';
-import '../../../service/ride_prefs_service.dart';
+import 'package:provider/provider.dart';
 
+import '../../../model/ride/ride_filter.dart';
+import '../../../provider/rides_preferences_provider.dart';
 import '../../../model/ride/ride.dart';
 import '../../../model/ride/ride_pref.dart';
-import '../../../service/rides_service.dart';
-import '../../theme/theme.dart';
+import '../../../service/rides_service.dart' as ridesService;
 import '../../../utils/animations_util.dart';
+import '../../theme/theme.dart';
+import 'widgets/ride_pref_bar.dart';
 import 'widgets/ride_pref_modal.dart';
 import 'widgets/rides_tile.dart';
+// import '../../utils/animation_utils.dart';
+// import '../../widgets/ride_tile.dart';
+// import '../../widgets/ride_pref_bar.dart';
+// import '../../constants/spacings.dart';
+// import '../ride_pref/ride_pref_modal.dart';
 
-///
-///  The Ride Selection screen allow user to select a ride, once ride preferences have been defined.
-///  The screen also allow user to re-define the ride preferences and to activate some filters.
-///
 class RidesScreen extends StatefulWidget {
   const RidesScreen({super.key});
 
@@ -23,44 +25,42 @@ class RidesScreen extends StatefulWidget {
 }
 
 class _RidesScreenState extends State<RidesScreen> {
-  RidePreference get currentPreference =>
-      RidePrefService.instance.currentPreference!;
-
   RideFilter currentFilter = RideFilter();
 
-  List<Ride> get matchingRides =>
-      RidesService.instance.getRidesFor(currentPreference, currentFilter);
-
-  void onBackPressed() {
-    // 1 - Back to the previous view
+  void onBackPressed(BuildContext context) {
     Navigator.of(context).pop();
   }
 
-  onRidePrefSelected(RidePreference newPreference) async {}
+  List<Ride> getAvailableRides(RidePreference preference) {
+    return ridesService.RidesService.instance.getRidesFor(preference, currentFilter);
+  }
 
-  void onPreferencePressed() async {
-    // Open a modal to edit the ride preferences
-    RidePreference? newPreference = await Navigator.of(
-      context,
-    ).push<RidePreference>(
+  Future<void> onPreferencePressed(BuildContext context) async {
+    final provider = context.read<RidesPreferencesProvider>();
+    final currentPreference = provider.currentPreference;
+
+    final RidePreference? newPreference =
+        await Navigator.of(context).push<RidePreference>(
       AnimationUtils.createTopToBottomRoute(
         RidePrefModal(initialPreference: currentPreference),
       ),
     );
 
     if (newPreference != null) {
-      // 1 - Update the current preference
-      RidePrefService.instance.setCurrentPreference(newPreference);
-
-      // 2 -   Update the state   -- TODO MAKE IT WITH STATE MANAGEMENT
-      setState(() {});
+      provider.setCurrentPreference(newPreference);
     }
   }
 
-  void onFilterPressed() {}
+  void onFilterPressed() {
+    // Implement filter logic here
+  }
 
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<RidesPreferencesProvider>();
+    final currentPreference = provider.currentPreference;
+    final matchingRides = getAvailableRides(currentPreference!);
+
     return Scaffold(
       body: Padding(
         padding: const EdgeInsets.only(
@@ -70,19 +70,19 @@ class _RidesScreenState extends State<RidesScreen> {
         ),
         child: Column(
           children: [
-            // Top search Search bar
             RidePrefBar(
               ridePreference: currentPreference,
-              onBackPressed: onBackPressed,
-              onPreferencePressed: onPreferencePressed,
+              onBackPressed: () => onBackPressed(context),
+              onPreferencePressed: () => onPreferencePressed(context),
               onFilterPressed: onFilterPressed,
             ),
-
             Expanded(
               child: ListView.builder(
                 itemCount: matchingRides.length,
-                itemBuilder: (ctx, index) =>
-                    RideTile(ride: matchingRides[index], onPressed: () {}),
+                itemBuilder: (ctx, index) => RideTile(
+                  ride: matchingRides[index],
+                  onPressed: () {},
+                ),
               ),
             ),
           ],
